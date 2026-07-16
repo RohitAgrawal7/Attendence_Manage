@@ -12,13 +12,13 @@ interface ActivityCardProps {
 function CategoryIcon({ category }: { category: string }) {
   const cls = 'h-5 w-5';
   switch (category.toLowerCase()) {
-    case 'assembly':
+    case 'Physical Activity':
       return <Users className={cls} />;
-    case 'academic':
+    case 'Mental Activity':
       return <BookOpen className={cls} />;
-    case 'sports':
+    case 'Sewadal':
       return <Trophy className={cls} />;
-    case 'cultural':
+    case 'Volunteers':
       return <Music className={cls} />;
     default:
       return <Clock className={cls} />;
@@ -47,7 +47,9 @@ export function ActivityCard({ activity, onEdit, onDelete }: ActivityCardProps) 
               {activity.category}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-500">{activity.description || 'No description'}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-500">
+            {activity.description || 'No description'}
+          </p>
           {activity.durationMinutes != null && (
             <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
               <Clock className="h-3.5 w-3.5" />

@@ -19,11 +19,14 @@ import {
 import { DataPdfPanel } from '../components/pdf/DataPdfPanel';
 import { buildYearPdfEntries } from '../utils/dataPdfHelpers';
 import { StudentDataTablesPanel } from '../components/students/StudentDataTablesPanel';
+import { usePdfPreview } from '../hooks/usePdfPreview';
+import type { DataPdfEntry } from '../types';
 
 export function YearPage() {
   const { year: yearParam } = useParams<{ year: string }>();
   const year = Number(yearParam);
   const { getYear, students } = useData();
+  const { openPreview, previewModal } = usePdfPreview();
   const yearData = getYear(year);
 
   if (!yearData) {
@@ -37,6 +40,26 @@ export function YearPage() {
     );
   }
 
+  function resolvePdfEntry(entry: DataPdfEntry) {
+    if (entry.id.startsWith('month-')) {
+      const parts = entry.id.split('-');
+      const m = Number(parts[2]);
+      const monthData = yearData!.months.find((x) => x.month === m);
+      if (monthData) {
+        return {
+          title: entry.name,
+          download: () => pdfService.exportMonth(monthData),
+          getUrl: () => pdfService.getMonthBlobUrl(monthData),
+        };
+      }
+    }
+    return {
+      title: `Year ${yearData!.year} Attendance Report`,
+      download: () => pdfService.exportYear(yearData!, students),
+      getUrl: () => pdfService.getYearBlobUrl(yearData!, students),
+    };
+  }
+
   return (
     <PageTransition>
       <Header
@@ -44,7 +67,16 @@ export function YearPage() {
         actions={
           <div className="flex items-center gap-2">
             <ShareYearReportButton yearData={yearData} />
-            <PdfButton onClick={() => pdfService.exportYear(yearData, students)} />
+            <PdfButton
+              onDownload={() => pdfService.exportYear(yearData, students)}
+              onPreview={() =>
+                openPreview(
+                  `Year ${yearData.year} Attendance Report`,
+                  () => pdfService.getYearBlobUrl(yearData, students),
+                  () => pdfService.exportYear(yearData, students),
+                )
+              }
+            />
           </div>
         }
       />
@@ -68,15 +100,10 @@ export function YearPage() {
           scopeKey={`year-${yearData.year}`}
           title="Data PDF Names"
           entries={buildYearPdfEntries(yearData)}
-          onExport={(entry) => {
-            if (entry.id.startsWith('month-')) {
-              const parts = entry.id.split('-');
-              const m = Number(parts[2]);
-              const monthData = yearData.months.find((x) => x.month === m);
-              if (monthData) pdfService.exportMonth(monthData);
-            } else {
-              pdfService.exportYear(yearData, students);
-            }
+          onExport={(entry) => resolvePdfEntry(entry).download()}
+          onPreview={(entry) => {
+            const pdf = resolvePdfEntry(entry);
+            openPreview(pdf.title, pdf.getUrl, pdf.download);
           }}
         />
 
@@ -122,6 +149,7 @@ export function YearPage() {
           })}
         </motion.div>
       </div>
+      {previewModal}
     </PageTransition>
   );
 }

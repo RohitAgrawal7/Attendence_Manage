@@ -65,6 +65,7 @@ export function mergeStudentData(primary: Student, secondary: Student): Student 
     phone: primary.phone ?? secondary.phone,
     address: primary.address ?? secondary.address,
     age: primary.age ?? secondary.age,
+    gender: primary.gender ?? secondary.gender,
     sanchalanSewa: primary.sanchalanSewa ?? secondary.sanchalanSewa,
     stageSewa: primary.stageSewa ?? secondary.stageSewa,
   };

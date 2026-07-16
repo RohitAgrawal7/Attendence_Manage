@@ -1,4 +1,5 @@
 import type { AttendanceStatus, Student } from '../../types';
+import { genderLabel } from '../../utils/stats';
 import { statusBadgeStyle, statusLabel, type StudentTableRow } from '../../utils/studentTable';
 
 interface StudentAttendanceTableProps {
@@ -26,11 +27,12 @@ export function StudentAttendanceTable({
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-left text-sm">
+        <table className="w-full min-w-[1020px] text-left text-sm">
           <thead>
             <tr className="bg-[#1e3a5f] text-xs font-semibold uppercase tracking-wide text-white">
               <th className="px-3 py-3 sm:px-4">#</th>
               <th className="px-3 py-3 sm:px-4">Name</th>
+              <th className="px-3 py-3 sm:px-4">Gender</th>
               <th className="px-3 py-3 sm:px-4">Class</th>
               <th className="px-3 py-3 sm:px-4">Phone</th>
               <th className="px-3 py-3 sm:px-4">Age</th>
@@ -43,7 +45,7 @@ export function StudentAttendanceTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-4 py-10 text-center text-sm text-gray-400">
                   {emptyMessage}
                 </td>
               </tr>
@@ -63,6 +65,7 @@ export function StudentAttendanceTable({
                   >
                     <td className="px-3 py-3 text-gray-400 sm:px-4">{index + 1}</td>
                     <td className="px-3 py-3 font-medium text-gray-900 sm:px-4">{row.student.name}</td>
+                    <td className="px-3 py-3 text-gray-700 sm:px-4">{genderLabel(row.student.gender)}</td>
                     <td className="px-3 py-3 text-gray-700 sm:px-4">{row.student.grade ?? '—'}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-gray-700 sm:px-4">
                       {row.student.phone ?? '—'}

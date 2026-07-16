@@ -50,6 +50,20 @@ export function getCameCount(session: SundaySession): number {
   return session.attendance.filter((r) => r.status === 'present' || r.status === 'late').length;
 }
 
+export function getBoyCount(session: SundaySession): number {
+  return session.attendance.filter((r) => r.student.gender === 'boy').length;
+}
+
+export function getGirlCount(session: SundaySession): number {
+  return session.attendance.filter((r) => r.student.gender === 'girl').length;
+}
+
+export function genderLabel(gender?: 'boy' | 'girl' | null): string {
+  if (gender === 'boy') return 'Boy';
+  if (gender === 'girl') return 'Girl';
+  return '—';
+}
+
 export interface SessionStats {
   total: number;
   present: number;
@@ -57,6 +71,8 @@ export interface SessionStats {
   late: number;
   excused: number;
   came: number;
+  boys: number;
+  girls: number;
   rate: number;
 }
 
@@ -74,6 +90,8 @@ export function getSessionStats(session: SundaySession): SessionStats {
     late,
     excused,
     came,
+    boys: getBoyCount(session),
+    girls: getGirlCount(session),
     rate: total === 0 ? 0 : (came / total) * 100,
   };
 }
@@ -95,13 +113,13 @@ export function statusColor(status: AttendanceStatus): string {
 
 export function categoryColor(category: string): string {
   switch (category.toLowerCase()) {
-    case 'assembly':
+    case 'Physical Activity':
       return '#1e3a5f';
-    case 'academic':
+    case 'Mental Activity':
       return '#4a90d9';
-    case 'sports':
+    case 'Sewadal':
       return '#2e7d32';
-    case 'cultural':
+    case 'Volunteers':
       return '#f57c00';
     default:
       return '#9e9e9e';

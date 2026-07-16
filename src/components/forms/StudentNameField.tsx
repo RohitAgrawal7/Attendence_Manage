@@ -224,6 +224,7 @@ export function studentToFormFields(
     address: student.address ?? '',
     age: student.age != null ? String(student.age) : '',
     grade: student.grade ?? '',
+    gender: student.gender ?? ('' as const),
     sanchalanSewa: student.sanchalanSewa ?? '',
     stageSewa: student.stageSewa ?? '',
     status,

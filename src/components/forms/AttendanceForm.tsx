@@ -25,6 +25,7 @@ interface FormState {
   address: string;
   age: string;
   grade: string;
+  gender: '' | 'boy' | 'girl';
   sanchalanSewa: string;
   stageSewa: string;
   status: AttendanceStatus;
@@ -36,6 +37,7 @@ const emptyForm: FormState = {
   address: '',
   age: '',
   grade: '',
+  gender: '',
   sanchalanSewa: '',
   stageSewa: '',
   status: 'present',
@@ -106,6 +108,7 @@ export function AttendanceForm() {
         address: record.student.address ?? '',
         age: record.student.age != null ? String(record.student.age) : '',
         grade: record.student.grade ?? '',
+        gender: record.student.gender ?? '',
         sanchalanSewa: record.student.sanchalanSewa ?? '',
         stageSewa: record.student.stageSewa ?? '',
         status: record.status,
@@ -131,6 +134,7 @@ export function AttendanceForm() {
           phone: form.phone,
           address: form.address,
           grade: form.grade,
+          gender: form.gender || undefined,
           sanchalanSewa: form.sanchalanSewa,
           stageSewa: form.stageSewa,
           status: form.status,
@@ -141,7 +145,7 @@ export function AttendanceForm() {
     }, 350);
 
     return () => clearTimeout(liveTimerRef.current);
-  }, [form.phone, form.address, form.grade, form.sanchalanSewa, form.stageSewa, form.status, form.studentId, selectedDate, patchAttendance, isInSession]);
+  }, [form.phone, form.address, form.grade, form.gender, form.sanchalanSewa, form.stageSewa, form.status, form.studentId, selectedDate, patchAttendance, isInSession]);
 
   useEffect(() => {
     if (topicHydratingRef.current) return;
@@ -197,6 +201,7 @@ export function AttendanceForm() {
       address: '',
       age: '',
       grade: '',
+      gender: '',
       sanchalanSewa: '',
       stageSewa: '',
       status: 'present',
@@ -220,6 +225,11 @@ export function AttendanceForm() {
       return;
     }
 
+    if (!form.gender) {
+      setError('Gender is required — select Boy or Girl');
+      return;
+    }
+
     const age = form.age.trim() ? Number(form.age) : undefined;
     if (form.age.trim() && (isNaN(age!) || age! < 1 || age! > 100)) {
       setError('Please enter a valid age');
@@ -234,6 +244,7 @@ export function AttendanceForm() {
         address: form.address || undefined,
         age,
         grade: form.grade || undefined,
+        gender: form.gender || undefined,
         sanchalanSewa: form.sanchalanSewa || undefined,
         stageSewa: form.stageSewa || undefined,
         status: form.status,
@@ -337,6 +348,33 @@ export function AttendanceForm() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
             </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Sanchalan Sewa <span className="text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.sanchalanSewa}
+                  onChange={(e) => updateField('sanchalanSewa', e.target.value)}
+                  placeholder="e.g. Team A"
+                  className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${filledInputClass}`}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Stage Sewa <span className="text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.stageSewa}
+                  onChange={(e) => updateField('stageSewa', e.target.value)}
+                  placeholder="e.g. Welcome"
+                  className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${filledInputClass}`}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-3 sm:space-y-4">
@@ -348,6 +386,22 @@ export function AttendanceForm() {
               onSelectStudent={applyStudent}
               onClearStudent={handleClearStudent}
             />
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">
+                Gender <span className="text-error">*</span>
+              </label>
+              <select
+                value={form.gender}
+                onChange={(e) => updateField('gender', e.target.value as FormState['gender'])}
+                required
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${filledInputClass}`}
+              >
+                <option value="">Select Boy / Girl</option>
+                <option value="boy">Boy</option>
+                <option value="girl">Girl</option>
+              </select>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -420,33 +474,6 @@ export function AttendanceForm() {
                     <option key={s} value={s}>{ATTENDANCE_STATUS_MAP[s].label}</option>
                   ))}
                 </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Sanchalan Sewa <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.sanchalanSewa}
-                  onChange={(e) => updateField('sanchalanSewa', e.target.value)}
-                  placeholder="e.g. Team A"
-                  className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${filledInputClass}`}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Stage Sewa <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.stageSewa}
-                  onChange={(e) => updateField('stageSewa', e.target.value)}
-                  placeholder="e.g. Welcome"
-                  className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${filledInputClass}`}
-                />
               </div>
             </div>
 

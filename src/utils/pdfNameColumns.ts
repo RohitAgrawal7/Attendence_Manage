@@ -75,47 +75,75 @@ export function buildDayNameColumn(session: SundaySession): { headers: string[];
   };
 }
 
-export const DAILY_ATTENDANCE_NAMES_PER_COLUMN = 25;
+export const DAILY_ATTENDANCE_NAMES_PER_COLUMN = 15;
 export const DAILY_ATTENDANCE_NAME_COLUMN_COUNT = 4;
+export const DAILY_ATTENDANCE_RECORDS_PER_PAGE =
+  DAILY_ATTENDANCE_NAMES_PER_COLUMN * DAILY_ATTENDANCE_NAME_COLUMN_COUNT;
+
+/** Approximate row height (mm) used to decide how many name rows fit on a page. */
+export const DAILY_NAME_ROW_HEIGHT_MM = 11;
+export const DAILY_NAME_HEADER_HEIGHT_MM = 14;
+export const DAILY_PDF_BOTTOM_MARGIN_MM = 22;
+export const DAILY_PDF_TOP_MARGIN_MM = 20;
 
 function getDailyAttendanceNames(session: SundaySession): string[] {
   return session.attendance.map((r) => r.student.name).sort((a, b) => a.localeCompare(b));
 }
 
-/** Daily PDF: 4 columns × 25 numbered names, then next page block if needed */
+export function getDailyNumberedNames(session: SundaySession): string[] {
+  return getDailyAttendanceNames(session).map((name, index) => `${index + 1}. ${name}`);
+}
+
+/** How many name rows fit in the remaining vertical space (capped at 15). */
+export function dailyNameRowsThatFit(availableHeightMm: number): number {
+  const usable = availableHeightMm - DAILY_NAME_HEADER_HEIGHT_MM;
+  if (usable < DAILY_NAME_ROW_HEIGHT_MM) return 0;
+  return Math.max(
+    0,
+    Math.min(DAILY_ATTENDANCE_NAMES_PER_COLUMN, Math.floor(usable / DAILY_NAME_ROW_HEIGHT_MM)),
+  );
+}
+
+/**
+ * Build one page block: 4 columns filled column-by-column.
+ * @param namesPerColumn — rows in each column for this page (e.g. 15, or fewer on page 1)
+ */
+export function buildDailyNameGridPage(
+  pageNames: string[],
+  namesPerColumn: number,
+): { headers: string[]; rows: string[][] } {
+  const headers = Array(DAILY_ATTENDANCE_NAME_COLUMN_COUNT).fill('Saints Name');
+  const columns: string[][] = [];
+  for (let c = 0; c < DAILY_ATTENDANCE_NAME_COLUMN_COUNT; c++) {
+    const start = c * namesPerColumn;
+    columns.push(pageNames.slice(start, start + namesPerColumn));
+  }
+  const rows: string[][] = [];
+  for (let r = 0; r < namesPerColumn; r++) {
+    rows.push(columns.map((col) => col[r] ?? ''));
+  }
+  return { headers, rows };
+}
+
+/**
+ * Daily PDF: 4 columns × N numbered names per page.
+ * Records fill column-by-column; when columns are full, continue on the next page.
+ */
 export function buildDailyNumberedNameGrids(
   session: SundaySession,
+  namesPerColumn = DAILY_ATTENDANCE_NAMES_PER_COLUMN,
 ): { headers: string[]; rows: string[][] }[] {
-  const names = getDailyAttendanceNames(session);
-  const numbered = names.map((name, index) => `${index + 1}. ${name}`);
-  const namesPerPage = DAILY_ATTENDANCE_NAMES_PER_COLUMN * DAILY_ATTENDANCE_NAME_COLUMN_COUNT;
-  const headers = Array(DAILY_ATTENDANCE_NAME_COLUMN_COUNT).fill('Saints Name');
+  const numbered = getDailyNumberedNames(session);
+  const perPage = namesPerColumn * DAILY_ATTENDANCE_NAME_COLUMN_COUNT;
   const grids: { headers: string[]; rows: string[][] }[] = [];
 
-  const buildGrid = (pageNames: string[]) => {
-    const columns: string[][] = [];
-    for (let c = 0; c < DAILY_ATTENDANCE_NAME_COLUMN_COUNT; c++) {
-      columns.push(
-        pageNames.slice(
-          c * DAILY_ATTENDANCE_NAMES_PER_COLUMN,
-          (c + 1) * DAILY_ATTENDANCE_NAMES_PER_COLUMN,
-        ),
-      );
-    }
-    const rows: string[][] = [];
-    for (let r = 0; r < DAILY_ATTENDANCE_NAMES_PER_COLUMN; r++) {
-      rows.push(columns.map((col) => col[r] ?? ''));
-    }
-    grids.push({ headers, rows });
-  };
-
   if (numbered.length === 0) {
-    buildGrid([]);
+    grids.push(buildDailyNameGridPage([], namesPerColumn));
     return grids;
   }
 
-  for (let offset = 0; offset < numbered.length; offset += namesPerPage) {
-    buildGrid(numbered.slice(offset, offset + namesPerPage));
+  for (let offset = 0; offset < numbered.length; offset += perPage) {
+    grids.push(buildDailyNameGridPage(numbered.slice(offset, offset + perPage), namesPerColumn));
   }
 
   return grids;

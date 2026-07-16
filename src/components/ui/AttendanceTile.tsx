@@ -50,6 +50,7 @@ export function AttendanceTile({
   const [phone, setPhone] = useState(record.student.phone ?? '');
   const [address, setAddress] = useState(record.student.address ?? '');
   const [grade, setGrade] = useState(record.student.grade ?? '');
+  const [gender, setGender] = useState(record.student.gender ?? '');
   const [sanchalanSewa, setSanchalanSewa] = useState(record.student.sanchalanSewa ?? '');
   const [stageSewa, setStageSewa] = useState(record.student.stageSewa ?? '');
   const [age, setAge] = useState(record.student.age != null ? String(record.student.age) : '');
@@ -66,6 +67,7 @@ export function AttendanceTile({
     setPhone(record.student.phone ?? '');
     setAddress(record.student.address ?? '');
     setGrade(record.student.grade ?? '');
+    setGender(record.student.gender ?? '');
     setSanchalanSewa(record.student.sanchalanSewa ?? '');
     setStageSewa(record.student.stageSewa ?? '');
     setAge(record.student.age != null ? String(record.student.age) : '');
@@ -104,6 +106,10 @@ export function AttendanceTile({
 
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto sm:gap-2">
           <span className="shrink-0 font-semibold text-gray-900">{student.name}</span>
+          <OneLineDetail
+            label="Gender"
+            value={student.gender === 'boy' ? 'Boy' : student.gender === 'girl' ? 'Girl' : undefined}
+          />
           <OneLineDetail label="Class" value={student.grade} />
           <OneLineDetail label="Phone" value={student.phone} />
           <OneLineDetail label="Sanchalan" value={student.sanchalanSewa} />
@@ -178,6 +184,22 @@ export function AttendanceTile({
                     placeholder="Mobile number"
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-gray-500">Gender *</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => {
+                      const v = e.target.value as '' | 'boy' | 'girl';
+                      setGender(v);
+                      livePatch({ gender: v || undefined });
+                    }}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  >
+                    <option value="">Select Boy / Girl</option>
+                    <option value="boy">Boy</option>
+                    <option value="girl">Girl</option>
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-gray-500">Class (optional)</label>

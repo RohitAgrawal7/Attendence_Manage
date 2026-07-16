@@ -4,7 +4,7 @@ import { Plus, Pencil, X } from 'lucide-react';
 import type { Activity } from '../../types';
 import { useData } from '../../context/DataContext';
 
-const CATEGORY_OPTIONS = ['Assembly', 'Academic', 'Sports', 'Cultural', 'Other'];
+const CATEGORY_OPTIONS = ['Physical Activity', 'Mental Activity', 'Sewadal', 'Volunteers', 'Other'];
 
 interface ActivityFormProps {
   year: number;
@@ -17,7 +17,7 @@ interface ActivityFormProps {
 const empty = {
   title: '',
   description: '',
-  category: 'Academic',
+  category: 'Physical Activity',
   duration: '',
 };
 
@@ -56,7 +56,7 @@ export function ActivityForm({ year, month, date, editing, onDone }: ActivityFor
     try {
       await saveActivity({
         id: editing?.id,
-        title: form.title,
+        title: form.title.trim(),
         description: form.description,
         category: form.category,
         durationMinutes: duration,
@@ -103,9 +103,9 @@ export function ActivityForm({ year, month, date, editing, onDone }: ActivityFor
           <textarea
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Activity details..."
-            rows={2}
-            className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            placeholder={'Activity details...\nUse new lines or numbered lists (1. Item 2. Item)'}
+            rows={4}
+            className="w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">

@@ -22,6 +22,8 @@ import { MonthFilesPanel } from '../components/month/MonthFilesPanel';
 import { DataPdfPanel } from '../components/pdf/DataPdfPanel';
 import { buildMonthPdfEntries } from '../utils/dataPdfHelpers';
 import { StudentDataTablesPanel } from '../components/students/StudentDataTablesPanel';
+import { usePdfPreview } from '../hooks/usePdfPreview';
+import type { DataPdfEntry } from '../types';
 
 export function MonthPage() {
   const { year: yearParam, month: monthParam } = useParams<{ year: string; month: string }>();
@@ -29,6 +31,7 @@ export function MonthPage() {
   const year = Number(yearParam);
   const month = Number(monthParam);
   const { getMonth, deleteMonth } = useData();
+  const { openPreview, previewModal } = usePdfPreview();
   const monthData = getMonth(year, month);
   const mName = monthName(month);
 
@@ -63,6 +66,26 @@ export function MonthPage() {
     }
   }
 
+  function resolvePdfEntry(entry: DataPdfEntry) {
+    if (entry.id.startsWith('session-')) {
+      const session = monthData!.sundays.find(
+        (s) => `session-${year}-${month}-${s.weekNumber}` === entry.id,
+      );
+      if (session) {
+        return {
+          title: entry.name,
+          download: () => pdfService.exportSunday(session, year, month),
+          getUrl: () => pdfService.getSundayBlobUrl(session, year, month),
+        };
+      }
+    }
+    return {
+      title: `${mName} ${year} Attendance Report`,
+      download: () => pdfService.exportMonth(monthData!),
+      getUrl: () => pdfService.getMonthBlobUrl(monthData!),
+    };
+  }
+
   return (
     <PageTransition>
       <Header
@@ -70,7 +93,16 @@ export function MonthPage() {
         actions={
           <div className="flex items-center gap-2">
             <ShareMonthReportButton monthData={monthData} />
-            <PdfButton onClick={() => pdfService.exportMonth(monthData)} />
+            <PdfButton
+              onDownload={() => pdfService.exportMonth(monthData)}
+              onPreview={() =>
+                openPreview(
+                  `${mName} ${year} Attendance Report`,
+                  () => pdfService.getMonthBlobUrl(monthData),
+                  () => pdfService.exportMonth(monthData),
+                )
+              }
+            />
             <button
               type="button"
               onClick={() => void handleDeleteMonth()}
@@ -116,15 +148,10 @@ export function MonthPage() {
           scopeKey={`month-${year}-${month}`}
           title="Data PDF Names"
           entries={buildMonthPdfEntries(monthData)}
-          onExport={(entry) => {
-            if (entry.id.startsWith('session-')) {
-              const session = monthData.sundays.find(
-                (s) => `session-${year}-${month}-${s.weekNumber}` === entry.id,
-              );
-              if (session) pdfService.exportSunday(session, year, month);
-            } else {
-              pdfService.exportMonth(monthData);
-            }
+          onExport={(entry) => resolvePdfEntry(entry).download()}
+          onPreview={(entry) => {
+            const pdf = resolvePdfEntry(entry);
+            openPreview(pdf.title, pdf.getUrl, pdf.download);
           }}
         />
 
@@ -189,6 +216,7 @@ export function MonthPage() {
           })}
         </motion.div>
       </div>
+      {previewModal}
     </PageTransition>
   );
 }

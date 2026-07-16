@@ -10,9 +10,11 @@ import { AttendanceForm } from '../components/forms/AttendanceForm';
 import { StudentReportPanel } from '../components/reports/StudentReportPanel';
 import { PageTransition, staggerContainer, staggerItem } from '../components/animations/PageTransition';
 import { getYearAverageAttendance, getYearTotalSessions } from '../utils/stats';
+import { usePdfPreview } from '../hooks/usePdfPreview';
 
 export function HomePage() {
   const { years, students } = useData();
+  const { openPreview, previewModal } = usePdfPreview();
   const totalSessions = years.reduce((sum, y) => sum + getYearTotalSessions(y), 0);
   const latestYear = years[0];
 
@@ -22,7 +24,18 @@ export function HomePage() {
         title="Dashboard"
         actions={
           latestYear ? (
-            <PdfButton onClick={() => pdfService.exportYear(latestYear, students)} label="Export Year PDF" />
+            <PdfButton
+              onDownload={() => pdfService.exportYear(latestYear, students)}
+              onPreview={() =>
+                openPreview(
+                  `Year ${latestYear.year} Attendance Report`,
+                  () => pdfService.getYearBlobUrl(latestYear, students),
+                  () => pdfService.exportYear(latestYear, students),
+                )
+              }
+              label="Download PDF"
+              previewLabel="Preview PDF"
+            />
           ) : undefined
         }
       />
@@ -132,6 +145,7 @@ export function HomePage() {
           ))}
         </motion.div>
       </div>
+      {previewModal}
     </PageTransition>
   );
 }

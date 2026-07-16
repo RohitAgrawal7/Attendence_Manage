@@ -20,6 +20,7 @@ export interface Student {
   phone?: string;
   address?: string;
   age?: number;
+  gender?: 'boy' | 'girl';
   sanchalanSewa?: string;
   stageSewa?: string;
 }
@@ -74,6 +75,7 @@ export interface AttendanceFormInput {
   address?: string;
   age?: number;
   grade?: string;
+  gender?: 'boy' | 'girl';
   sanchalanSewa?: string;
   stageSewa?: string;
   status?: AttendanceStatus;
@@ -113,10 +115,24 @@ export interface PatchAttendanceInput {
     address?: string;
     grade?: string;
     age?: number;
+    gender?: 'boy' | 'girl';
     sanchalanSewa?: string;
     stageSewa?: string;
     status?: AttendanceStatus;
   };
+}
+
+export interface UpdateStudentInput {
+  id: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  grade?: string;
+  age?: number;
+  gender?: 'boy' | 'girl';
+  rollNumber?: string;
+  sanchalanSewa?: string;
+  stageSewa?: string;
 }
 
 export interface AttendanceActionResult {

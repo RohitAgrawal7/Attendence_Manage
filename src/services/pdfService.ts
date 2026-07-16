@@ -16,10 +16,18 @@ import type { StudentAttendanceReport } from '../utils/studentReport';
 import { buildAllStudentsSummary, type ReportScope } from '../utils/studentReport';
 import type { Student } from '../types';
 import {
-  buildDailyNumberedNameGrids,
+  buildDailyNameGridPage,
   buildMonthNameColumns,
   buildYearNameColumns,
+  DAILY_ATTENDANCE_NAME_COLUMN_COUNT,
+  DAILY_ATTENDANCE_NAMES_PER_COLUMN,
+  DAILY_PDF_BOTTOM_MARGIN_MM,
+  DAILY_PDF_TOP_MARGIN_MM,
+  dailyNameRowsThatFit,
+  getDailyNumberedNames,
 } from '../utils/pdfNameColumns';
+import { formatActivityDescriptionForPdf, formatPdfCellText } from '../utils/pdfText';
+import type { StudentListEntry } from '../utils/studentList';
 
 type JsPdfWithTable = jsPDF & { lastAutoTable: { finalY: number } };
 
@@ -36,6 +44,7 @@ interface DayPageContext {
 const STUDENT_DETAIL_HEADERS = [
   '#',
   'Name',
+  'Gender',
   'Class',
   'Phone',
   'Age',
@@ -49,6 +58,7 @@ function studentDetailTableRow(record: AttendanceRecord, index: number): string[
   return [
     String(index + 1),
     record.student.name,
+    record.student.gender === 'boy' ? 'Boy' : record.student.gender === 'girl' ? 'Girl' : '-',
     record.student.grade ?? '-',
     record.student.phone ?? '-',
     record.student.age != null ? String(record.student.age) : '-',
@@ -76,6 +86,8 @@ function buildSessionDetailCountRows(
 ): string[][] {
   return [
     ['Total Saints Count', String(stats.total)],
+    ['Boys Count', String(stats.boys)],
+    ['Girls Count', String(stats.girls)],
     // ['Saints Count', String(stats.came)],
     // ['Present', String(stats.present)],
     ['Sanchalan Sewa Name', uniqueSewaNames(session, 'sanchalanSewa')],
@@ -84,8 +96,9 @@ function buildSessionDetailCountRows(
 }
 
 function addHeader(doc: jsPDF, title: string, subtitle: string) {
+  const pageWidth = doc.internal.pageSize.getWidth();
   doc.setFillColor(30, 58, 95);
-  doc.rect(0, 0, 210, 28, 'F');
+  doc.rect(0, 0, pageWidth, 28, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
@@ -93,7 +106,7 @@ function addHeader(doc: jsPDF, title: string, subtitle: string) {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(subtitle, 14, 22);
-  doc.text('Bal Sangat Management Sewa', 196, 14, { align: 'right' });
+  doc.text('Bal Sangat Management Sewa', pageWidth - 14, 14, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 }
 
@@ -102,31 +115,29 @@ function addFooters(doc: jsPDF, pageContexts?: Map<number, DayPageContext>) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     const ctx = pageContexts?.get(i);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const footerY = pageHeight - 15;
 
     doc.setDrawColor(200, 200, 200);
-    doc.line(14, 282, 196, 282);
+    doc.line(14, footerY - 5, pageWidth - 14, footerY - 5);
 
     if (ctx) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(30, 58, 95);
-      doc.text(`Day: ${ctx.dateLabel}`, 14, 287);
+      doc.text(`Day: ${ctx.dateLabel}`, 14, footerY);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(46, 125, 50);
-      doc.text(
-        // `Students Came: ${ctx.stats.came}/${ctx.stats.total}  |  Present: ${ctx.stats.present}  Absent: ${ctx.stats.absent}  Late: ${ctx.stats.late}  Excused: ${ctx.stats.excused}  |  Rate: ${ctx.stats.rate.toFixed(0)}%`,
-        `Saints Present: ${ctx.stats.present}`,
-        14,
-        292,
-      );
+      doc.text(`Saints Present: ${ctx.stats.present}`, 14, footerY + 5);
     }
 
     doc.setFontSize(7);
     doc.setTextColor(128, 128, 128);
     doc.text(
       `Page ${i} of ${pageCount} • Generated ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`,
-      196,
-      292,
+      pageWidth - 14,
+      footerY + 5,
       { align: 'right' },
     );
     doc.setTextColor(0, 0, 0);
@@ -281,13 +292,24 @@ function buildTopicsBlock(doc: jsPDF, startY: number, sessions: SundaySession[],
   return y + 6;
 }
 
-function collectSessionActivities(sessions: SundaySession[]): Activity[] {
+function collectSessionActivities(
+  sessions: SundaySession[],
+): { activity: Activity; sessionDate?: string }[] {
   return [...sessions]
     .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .flatMap((session) => session.activities);
+    .flatMap((session) =>
+      session.activities.map((activity) => ({
+        activity,
+        sessionDate: format(session.date, 'dd MMM'),
+      })),
+    );
 }
 
-function buildActivitiesBlock(doc: jsPDF, startY: number, activities: Activity[]): number {
+function buildActivitiesBlock(
+  doc: jsPDF,
+  startY: number,
+  items: { activity: Activity; sessionDate?: string }[],
+): number {
   let y = startY;
   if (y > 220) {
     doc.addPage();
@@ -299,24 +321,75 @@ function buildActivitiesBlock(doc: jsPDF, startY: number, activities: Activity[]
   doc.setTextColor(0, 0, 0);
   doc.text('Activities', 14, y);
 
+  const showSessionDate = items.some((item) => item.sessionDate);
   const body =
-    activities.length > 0
-      ? activities.map((activity) => [
-          activity.title,
-          activity.category,
-          `${activity.durationMinutes ?? 0} min`,
-          activity.description,
-        ])
+    items.length > 0
+      ? items.map(({ activity, sessionDate }) => {
+          const title = formatPdfCellText(activity.title);
+          const activityLabel =
+            showSessionDate && sessionDate ? `${sessionDate} — ${title}` : title;
+
+          return [
+            activityLabel,
+            formatPdfCellText(activity.category),
+            `${activity.durationMinutes ?? 0} min`,
+            formatActivityDescriptionForPdf(activity.description),
+          ];
+        })
       : [['—', '—', '—', 'No activities recorded.']];
 
   autoTable(doc, {
     startY: y + 8,
     head: [['Activity', 'Category', 'Duration', 'Description']],
     body,
-    headStyles: { fillColor: [30, 58, 95], textColor: 255, fontSize: 8 },
-    bodyStyles: { fontSize: 8 },
-    alternateRowStyles: { fillColor: [245, 247, 250] },
     margin: { left: 14, right: 14 },
+    tableWidth: 182,
+    styles: {
+      font: 'helvetica',
+      fontSize: 8,
+      halign: 'left',
+      valign: 'top',
+      overflow: 'linebreak',
+      cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+      lineWidth: 0.1,
+      lineColor: [220, 225, 232],
+    },
+    headStyles: {
+      fillColor: [30, 58, 95],
+      textColor: 255,
+      fontSize: 8,
+      fontStyle: 'bold',
+      halign: 'left',
+      valign: 'middle',
+      overflow: 'visible',
+      minCellHeight: 10,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [48, 55, 64],
+      halign: 'left',
+      valign: 'top',
+      overflow: 'linebreak',
+    },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    columnStyles: {
+      0: { cellWidth: 30, halign: 'left' },
+      1: { cellWidth: 24, halign: 'left' },
+      2: { cellWidth: 26, halign: 'left', overflow: 'visible' },
+      3: { cellWidth: 102, halign: 'left', overflow: 'linebreak' },
+    },
+    didParseCell: (hook) => {
+      if (hook.section === 'head') {
+        hook.cell.styles.overflow = 'visible';
+        if (hook.column.index === 2) {
+          hook.cell.styles.minCellWidth = 26;
+        }
+      }
+      if (hook.section === 'body') {
+        hook.cell.styles.halign = 'left';
+        hook.cell.styles.overflow = hook.column.index === 3 ? 'linebreak' : 'visible';
+      }
+    },
   });
 
   return (doc as JsPdfWithTable).lastAutoTable.finalY + 10;
@@ -421,6 +494,7 @@ function buildStudentProfileBox(doc: jsPDF, report: StudentAttendanceReport, sta
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
   const details = [
+    student.gender === 'boy' ? 'Gender: Boy' : student.gender === 'girl' ? 'Gender: Girl' : null,
     student.grade ? `Class: ${student.grade}` : null,
     student.phone ? `Phone: ${student.phone}` : null,
     student.address ? `Address: ${student.address}` : null,
@@ -481,14 +555,15 @@ function buildAttendanceTable(
     alternateRowStyles: { fillColor: [245, 247, 250] },
     columnStyles: {
       0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 28, halign: 'left' },
-      2: { cellWidth: 18, halign: 'left' },
-      3: { cellWidth: 24, halign: 'left' },
-      4: { cellWidth: 10, halign: 'center' },
-      5: { cellWidth: 22, halign: 'left' },
-      6: { cellWidth: 22, halign: 'left' },
+      1: { cellWidth: 26, halign: 'left' },
+      2: { cellWidth: 14, halign: 'center' },
+      3: { cellWidth: 16, halign: 'left' },
+      4: { cellWidth: 22, halign: 'left' },
+      5: { cellWidth: 10, halign: 'center' },
+      6: { cellWidth: 20, halign: 'left' },
       7: { cellWidth: 20, halign: 'left' },
-      8: { cellWidth: 16, halign: 'center' },
+      8: { cellWidth: 18, halign: 'left' },
+      9: { cellWidth: 14, halign: 'center' },
     },
     didDrawPage: () => {
       const currentPage = doc.getNumberOfPages();
@@ -553,24 +628,24 @@ function buildDailyAttendanceNumberedNamesTable(
   const stats = getSessionStats(session);
   const dateLabel = `${format(session.date, 'dd MMM yyyy')} (${sessionLabel(session.date)})`;
   const startPage = doc.getNumberOfPages();
-  const grids = buildDailyNumberedNameGrids(session);
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const numbered = getDailyNumberedNames(session);
   let y = startY;
+  let offset = 0;
 
-  for (let i = 0; i < grids.length; i++) {
-    const { headers, rows } = grids[i];
-    if (i > 0) {
-      doc.addPage();
-      y = 20;
-    }
-
+  const drawPageGrid = (pageNames: string[], namesPerColumn: number, atY: number) => {
+    const { headers, rows } = buildDailyNameGridPage(pageNames, namesPerColumn);
     autoTable(doc, {
-      startY: y,
+      startY: atY,
       theme: 'plain',
       head: [headers],
       body: rows,
-      margin: { left: 14, right: 14 },
+      margin: { left: 14, right: 14, bottom: DAILY_PDF_BOTTOM_MARGIN_MM },
+      // We paginate ourselves — do not let autoTable split mid-grid.
+      pageBreak: 'avoid',
+      rowPageBreak: 'avoid',
       styles: {
-        cellPadding: { top: 4, right: 4, bottom: 4, left: 5 },
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 4 },
         font: 'helvetica',
         lineWidth: 0.1,
         lineColor: [220, 220, 220],
@@ -589,7 +664,7 @@ function buildDailyAttendanceNumberedNamesTable(
       bodyStyles: {
         fontSize: 9,
         textColor: [48, 55, 64],
-        minCellHeight: 11,
+        minCellHeight: 10,
         halign: 'left',
       },
       didDrawPage: () => {
@@ -597,7 +672,38 @@ function buildDailyAttendanceNumberedNamesTable(
         pageContexts.set(currentPage, { dateLabel, stats });
       },
     });
-    y = (doc as JsPdfWithTable).lastAutoTable.finalY + 8;
+    return (doc as JsPdfWithTable).lastAutoTable.finalY + 8;
+  };
+
+  if (numbered.length === 0) {
+    y = drawPageGrid([], Math.min(3, DAILY_ATTENDANCE_NAMES_PER_COLUMN), y);
+  } else {
+    while (offset < numbered.length) {
+      let rowsFit = dailyNameRowsThatFit(pageHeight - DAILY_PDF_BOTTOM_MARGIN_MM - y);
+
+      // Not enough room for a useful block — start a fresh page.
+      if (rowsFit < 3) {
+        doc.addPage();
+        y = DAILY_PDF_TOP_MARGIN_MM;
+        rowsFit = dailyNameRowsThatFit(pageHeight - DAILY_PDF_BOTTOM_MARGIN_MM - y);
+      }
+
+      const namesPerColumn = Math.max(
+        1,
+        Math.min(DAILY_ATTENDANCE_NAMES_PER_COLUMN, rowsFit || DAILY_ATTENDANCE_NAMES_PER_COLUMN),
+      );
+      const capacity = namesPerColumn * DAILY_ATTENDANCE_NAME_COLUMN_COUNT;
+      const pageNames = numbered.slice(offset, offset + capacity);
+
+      y = drawPageGrid(pageNames, namesPerColumn, y);
+      offset += pageNames.length;
+
+      // More names remain → next page for the next full block.
+      if (offset < numbered.length) {
+        doc.addPage();
+        y = DAILY_PDF_TOP_MARGIN_MM;
+      }
+    }
   }
 
   const endPage = doc.getNumberOfPages();
@@ -646,7 +752,7 @@ function renderSessionBlock(
 }
 
 export const pdfService = {
-  exportYear(yearData: YearData, students: Student[] = [], options: PdfExportOptions = {}) {
+  buildYearDoc(yearData: YearData, students: Student[] = [], options: PdfExportOptions = {}): jsPDF {
     const includeStudentTables = options.includeStudentTables ?? true;
     const doc = new jsPDF();
     const pageContexts = new Map<number, DayPageContext>();
@@ -717,10 +823,18 @@ export const pdfService = {
     y = buildActivitiesBlock(doc, y, collectSessionActivities(allSessions));
 
     addFooters(doc, pageContexts);
-    doc.save(`attendance_${yearData.year}.pdf`);
+    return doc;
   },
 
-  exportMonth(monthData: MonthData, options: PdfExportOptions = {}) {
+  exportYear(yearData: YearData, students: Student[] = [], options: PdfExportOptions = {}) {
+    this.buildYearDoc(yearData, students, options).save(`attendance_${yearData.year}.pdf`);
+  },
+
+  getYearBlobUrl(yearData: YearData, students: Student[] = [], options: PdfExportOptions = {}) {
+    return String(this.buildYearDoc(yearData, students, options).output('bloburl'));
+  },
+
+  buildMonthDoc(monthData: MonthData, options: PdfExportOptions = {}): jsPDF {
     const includeStudentTables = options.includeStudentTables ?? true;
     const doc = new jsPDF();
     const pageContexts = new Map<number, DayPageContext>();
@@ -787,27 +901,37 @@ export const pdfService = {
     y = buildActivitiesBlock(doc, y, collectSessionActivities(monthData.sundays));
 
     addFooters(doc, pageContexts);
-    doc.save(`attendance_${mName}_${monthData.year}.pdf`);
+    return doc;
   },
 
-  exportSunday(session: SundaySession, year: number, month: number, options: PdfExportOptions = {}) {
+  exportMonth(monthData: MonthData, options: PdfExportOptions = {}) {
+    const mName = monthName(monthData.month);
+    this.buildMonthDoc(monthData, options).save(`attendance_${mName}_${monthData.year}.pdf`);
+  },
+
+  getMonthBlobUrl(monthData: MonthData, options: PdfExportOptions = {}) {
+    return String(this.buildMonthDoc(monthData, options).output('bloburl'));
+  },
+
+  buildSundayDoc(
+    session: SundaySession,
+    _year: number,
+    _month: number,
+    options: PdfExportOptions = {},
+  ): jsPDF {
     const includeStudentTables = options.includeStudentTables ?? true;
     const doc = new jsPDF();
     const pageContexts = new Map<number, DayPageContext>();
-    const mName = monthName(month);
     const stats = getSessionStats(session);
     const dateLabel = format(session.date, 'EEEE, dd MMM yyyy');
 
     addHeader(
       doc,
       'Attendance Report',
-      // `${sessionLabel(session.date)} — ${format(session.date, 'dd MMM yyyy')}`,
       `${format(session.date, 'EEEE, dd MMM yyyy')}`,
     );
 
     let y = 36;
-    // doc.setFontSize(10);
-    // doc.text(`${mName} ${year}`, 14, y);
     y += 1;
 
     // Hidden: day summary box (Total / Came / Present card)
@@ -848,14 +972,34 @@ export const pdfService = {
       y = buildDailyAttendanceNumberedNamesTable(doc, session, y, pageContexts);
     }
 
-    y = buildActivitiesBlock(doc, y, session.activities);
+    y = buildActivitiesBlock(
+      doc,
+      y,
+      session.activities.map((activity) => ({ activity })),
+    );
 
     pageContexts.set(1, { dateLabel, stats });
     addFooters(doc, pageContexts);
-    doc.save(`attendance_${format(session.date, 'dd-MMM-yyyy')}_${mName}_${year}.pdf`);
+    return doc;
   },
 
-  exportStudentReport(report: StudentAttendanceReport) {
+  exportSunday(session: SundaySession, year: number, month: number, options: PdfExportOptions = {}) {
+    const mName = monthName(month);
+    this.buildSundayDoc(session, year, month, options).save(
+      `attendance_${format(session.date, 'dd-MMM-yyyy')}_${mName}_${year}.pdf`,
+    );
+  },
+
+  getSundayBlobUrl(
+    session: SundaySession,
+    year: number,
+    month: number,
+    options: PdfExportOptions = {},
+  ) {
+    return String(this.buildSundayDoc(session, year, month, options).output('bloburl'));
+  },
+
+  buildStudentReportDoc(report: StudentAttendanceReport): jsPDF {
     const doc = new jsPDF();
     addHeader(doc, 'Saints Attendance Report', report.scopeLabel);
 
@@ -873,6 +1017,7 @@ export const pdfService = {
         ['Late', String(report.late)],
         ['Excused', String(report.excused)],
         ['Attendance Rate', `${report.rate.toFixed(1)}%`],
+        ['Gender', report.student.gender === 'boy' ? 'Boy' : report.student.gender === 'girl' ? 'Girl' : '-'],
         ['Sanchalan Sewa Name', report.student.sanchalanSewa?.trim() || '-'],
         ['Stage Sewa Name', report.student.stageSewa?.trim() || '-'],
       ],
@@ -906,7 +1051,142 @@ export const pdfService = {
     });
 
     addFooters(doc);
+    return doc;
+  },
+
+  exportStudentReport(report: StudentAttendanceReport) {
     const safeName = report.student.name.replace(/\s+/g, '_');
-    doc.save(`student_${safeName}_${report.scopeLabel.replace(/\s+/g, '_')}.pdf`);
+    this.buildStudentReportDoc(report).save(
+      `student_${safeName}_${report.scopeLabel.replace(/\s+/g, '_')}.pdf`,
+    );
+  },
+
+  getStudentReportBlobUrl(report: StudentAttendanceReport) {
+    return String(this.buildStudentReportDoc(report).output('bloburl'));
+  },
+
+  /** Full master list of all saints with complete profile + attendance data (landscape). */
+  buildAllSaintsListDoc(entries: StudentListEntry[]): jsPDF {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const total = entries.length;
+    const withAttendance = entries.filter((e) => e.totalSessions > 0).length;
+    // Hidden from subtitle: avg rate
+    // const avgRate =
+    //   total === 0 ? 0 : entries.reduce((sum, e) => sum + e.rate, 0) / total;
+
+    addHeader(
+      doc,
+      'All Saints Master List',
+      `${total} saints • ${withAttendance} with attendance`,
+      // `${total} saints • ${withAttendance} with attendance • Avg rate ${avgRate.toFixed(0)}%`,
+    );
+
+    let y = 34;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text(
+      'Complete saints data: profile details and attendance summary for every unique saint.',
+      14,
+      y,
+    );
+    y += 6;
+
+    autoTable(doc, {
+      startY: y,
+      head: [[
+        '#',
+        'Name',
+        'Class',
+        'Phone',
+        'Age',
+        'Address',
+        // Hidden columns:
+        // 'Sanchalan Sewa',
+        // 'Stage Sewa',
+        'Sessions',
+        'Present',
+        // 'Came',
+        // 'Absent',
+        // 'Late',
+        // 'Excused',
+        // 'Rate',
+      ]],
+      body: entries.map((entry, i) => {
+        const s = entry.student;
+        return [
+          String(i + 1),
+          formatPdfCellText(s.name),
+          formatPdfCellText(s.grade),
+          formatPdfCellText(s.phone),
+          s.age != null ? String(s.age) : '-',
+          formatPdfCellText(s.address),
+          // formatPdfCellText(s.sanchalanSewa),
+          // formatPdfCellText(s.stageSewa),
+          String(entry.totalSessions),
+          String(entry.present),
+          // String(entry.cameDays),
+          // String(entry.absent),
+          // String(entry.late),
+          // String(entry.excused),
+          // `${entry.rate.toFixed(0)}%`,
+        ];
+      }),
+      margin: { left: 10, right: 10, bottom: 18 },
+      styles: {
+        font: 'helvetica',
+        fontSize: 8,
+        halign: 'left',
+        valign: 'middle',
+        overflow: 'linebreak',
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+      },
+      headStyles: {
+        fillColor: [30, 58, 95],
+        textColor: 255,
+        fontSize: 8,
+        fontStyle: 'bold',
+        halign: 'left',
+        overflow: 'linebreak',
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [48, 55, 64],
+      },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 42 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 32 },
+        4: { cellWidth: 16, halign: 'center' },
+        5: { cellWidth: 70 },
+        6: { cellWidth: 24, halign: 'center' },
+        7: { cellWidth: 24, halign: 'center' },
+        // Hidden column widths (restore with columns above):
+        // 6: { cellWidth: 24 }, // Sanchalan Sewa
+        // 7: { cellWidth: 22 }, // Stage Sewa
+        // 8: { cellWidth: 14, halign: 'center' }, // Sessions
+        // 9: { cellWidth: 14, halign: 'center' }, // Present
+        // 10: { cellWidth: 12, halign: 'center' }, // Came
+        // 11: { cellWidth: 14, halign: 'center' }, // Absent
+        // 12: { cellWidth: 12, halign: 'center' }, // Late
+        // 13: { cellWidth: 14, halign: 'center' }, // Excused
+        // 14: { cellWidth: 12, halign: 'center' }, // Rate
+      },
+    });
+
+    addFooters(doc);
+    return doc;
+  },
+
+  exportAllSaintsList(entries: StudentListEntry[]) {
+    const doc = this.buildAllSaintsListDoc(entries);
+    doc.save(`all_saints_master_list_${format(new Date(), 'dd-MMM-yyyy')}.pdf`);
+  },
+
+  getAllSaintsListBlobUrl(entries: StudentListEntry[]): string {
+    const doc = this.buildAllSaintsListDoc(entries);
+    return String(doc.output('bloburl'));
   },
 };

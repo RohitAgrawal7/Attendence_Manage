@@ -16,10 +16,11 @@ import { ActivityForm } from '../components/forms/ActivityForm';
 import { SessionTopicField } from '../components/ui/SessionTopicField';
 import { PageTransition } from '../components/animations/PageTransition';
 import { formatDate, formatDay, monthName } from '../utils/formatters';
-import { getAbsentCount, getAttendanceRate, getPresentCount } from '../utils/stats';
+import { getAbsentCount, getAttendanceRate, getBoyCount, getGirlCount, getPresentCount } from '../utils/stats';
 import { parseDateKey, sessionLabel, toDateKey } from '../utils/sundayHelpers';
 import { DataPdfPanel } from '../components/pdf/DataPdfPanel';
 import { buildSessionPdfEntry } from '../utils/dataPdfHelpers';
+import { usePdfPreview } from '../hooks/usePdfPreview';
 
 type Tab = 'attendance' | 'activities';
 
@@ -34,6 +35,7 @@ export function SessionDetailPage() {
   const year = Number(yearParam);
   const month = Number(monthParam);
   const { getSessionByDate, getSunday, deleteAttendance, deleteActivity, deleteSession, setEditTarget } = useData();
+  const { openPreview, previewModal } = usePdfPreview();
   const [tab, setTab] = useState<Tab>('attendance');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showActivityForm, setShowActivityForm] = useState(false);
@@ -124,7 +126,16 @@ export function SessionDetailPage() {
         actions={
           <div className="flex items-center gap-2">
             <ShareSessionReportButton session={session} year={year} month={month} />
-            <PdfButton onClick={() => pdfService.exportSunday(session, year, month)} />
+            <PdfButton
+              onDownload={() => pdfService.exportSunday(session, year, month)}
+              onPreview={() =>
+                openPreview(
+                  `${label} Attendance Report`,
+                  () => pdfService.getSundayBlobUrl(session, year, month),
+                  () => pdfService.exportSunday(session, year, month),
+                )
+              }
+            />
             <button
               type="button"
               onClick={() => void handleDeleteSession()}
@@ -158,10 +169,12 @@ export function SessionDetailPage() {
             </span>
           </div>
           <SessionTopicField year={year} month={month} session={session} variant="detail" />
-          <div className="mt-4 flex justify-around gap-4">
+          <div className="mt-4 flex flex-wrap justify-around gap-4">
             {[
               { label: 'Present', value: getPresentCount(session), color: '#69f0ae' },
               { label: 'Absent', value: getAbsentCount(session), color: '#ff8a80' },
+              { label: 'Boys', value: getBoyCount(session), color: '#82b1ff' },
+              { label: 'Girls', value: getGirlCount(session), color: '#f48fb1' },
               { label: 'Rate', value: `${getAttendanceRate(session).toFixed(0)}%`, color: '#ffd54f' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
@@ -184,6 +197,13 @@ export function SessionDetailPage() {
           title="Data PDF Names"
           entries={[buildSessionPdfEntry(session, year, month)]}
           onExport={() => pdfService.exportSunday(session, year, month)}
+          onPreview={() =>
+            openPreview(
+              `${label} Attendance Report`,
+              () => pdfService.getSundayBlobUrl(session, year, month),
+              () => pdfService.exportSunday(session, year, month),
+            )
+          }
         />
 
         <Link
@@ -326,6 +346,7 @@ export function SessionDetailPage() {
           )}
         </AnimatePresence>
       </div>
+      {previewModal}
     </PageTransition>
   );
 }

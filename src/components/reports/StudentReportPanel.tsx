@@ -10,6 +10,7 @@ import {
   Share2,
   FileDown,
   ChevronDown,
+  Eye,
 } from 'lucide-react';
 import type { Student } from '../../types';
 import { ATTENDANCE_STATUS_MAP } from '../../types';
@@ -22,6 +23,7 @@ import {
 } from '../../utils/studentReport';
 import { statusColor } from '../../utils/stats';
 import { formatDate, formatDay } from '../../utils/formatters';
+import { usePdfPreview } from '../../hooks/usePdfPreview';
 
 interface StudentReportPanelProps {
   scope: ReportScope;
@@ -37,6 +39,7 @@ export function StudentReportPanel({
   compact,
 }: StudentReportPanelProps) {
   const { students, years } = useData();
+  const { openPreview, previewModal } = usePdfPreview();
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | undefined>(initialStudentId);
   const [open, setOpen] = useState(!compact || Boolean(initialStudentId));
@@ -108,6 +111,15 @@ export function StudentReportPanel({
     pdfService.exportStudentReport(report);
   }
 
+  function handlePreviewPdf() {
+    if (!report) return;
+    openPreview(
+      `${report.student.name} — ${scopeLabel}`,
+      () => pdfService.getStudentReportBlobUrl(report),
+      () => pdfService.exportStudentReport(report),
+    );
+  }
+
   return (
     <div className="card-shadow relative z-10 rounded-xl bg-white">
       <button
@@ -119,7 +131,9 @@ export function StudentReportPanel({
           <User className="h-5 w-5 text-primary" />
           <div>
             <p className="font-bold text-primary">Saints Report — {scopeLabel}</p>
-            <p className="text-xs text-gray-500">Search any saints • days present • full details • share</p>
+            <p className="text-xs text-gray-500">
+              Search any saints • days present • preview / download PDF
+            </p>
           </div>
         </div>
         <motion.div animate={{ rotate: open ? 180 : 0 }}>
@@ -189,13 +203,19 @@ export function StudentReportPanel({
                         <h4 className="text-lg font-bold text-primary">{report.student.name}</h4>
                         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 sm:text-sm">
                           {report.student.grade && (
-                            <span className="flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" /> {report.student.grade}</span>
+                            <span className="flex items-center gap-1">
+                              <GraduationCap className="h-3.5 w-3.5" /> {report.student.grade}
+                            </span>
                           )}
                           {report.student.phone && (
-                            <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {report.student.phone}</span>
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3.5 w-3.5" /> {report.student.phone}
+                            </span>
                           )}
                           {report.student.address && (
-                            <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {report.student.address}</span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" /> {report.student.address}
+                            </span>
                           )}
                           {report.student.sanchalanSewa && (
                             <span>Sanchalan Sewa: {report.student.sanchalanSewa}</span>
@@ -204,9 +224,14 @@ export function StudentReportPanel({
                             <span>Stage Sewa: {report.student.stageSewa}</span>
                           )}
                           {report.student.age != null && <span>Age: {report.student.age}</span>}
+                          {report.student.gender && (
+                            <span>
+                              Gender: {report.student.gender === 'boy' ? 'Boy' : 'Girl'}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={handleShare}
@@ -216,10 +241,17 @@ export function StudentReportPanel({
                         </button>
                         <button
                           type="button"
+                          onClick={handlePreviewPdf}
+                          className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-white px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Preview
+                        </button>
+                        <button
+                          type="button"
                           onClick={handleExportPdf}
                           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-light"
                         >
-                          <FileDown className="h-3.5 w-3.5" /> PDF
+                          <FileDown className="h-3.5 w-3.5" /> Download
                         </button>
                       </div>
                     </div>
@@ -236,14 +268,18 @@ export function StudentReportPanel({
                       { label: 'Rate', value: `${report.rate.toFixed(0)}%`, color: '#1e3a5f' },
                     ].map(({ label, value, color }) => (
                       <div key={label} className="rounded-lg bg-gray-50 p-3 text-center">
-                        <p className="text-lg font-bold" style={{ color }}>{value}</p>
+                        <p className="text-lg font-bold" style={{ color }}>
+                          {value}
+                        </p>
                         <p className="text-[10px] text-gray-500 sm:text-xs">{label}</p>
                       </div>
                     ))}
                   </div>
 
                   {report.days.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-gray-500">No attendance records in this period</p>
+                    <p className="py-4 text-center text-sm text-gray-500">
+                      No attendance records in this period
+                    </p>
                   ) : (
                     <div>
                       <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-primary">
@@ -299,6 +335,8 @@ export function StudentReportPanel({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {previewModal}
     </div>
   );
 }

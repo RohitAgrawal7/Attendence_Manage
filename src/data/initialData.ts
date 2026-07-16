@@ -78,21 +78,21 @@ function sampleActivities(weekNumber: number): Activity[] {
       id: `a${weekNumber}_1`,
       title: 'Morning Assembly',
       description: 'Prayer, announcements, and flag hoisting',
-      category: 'Assembly',
+      category: 'Physical Activity',
       durationMinutes: 30,
     },
     {
       id: `a${weekNumber}_2`,
       title: 'Group Discussion',
       description: 'Topic-based student discussion in groups',
-      category: 'Academic',
+      category: 'Mental Activity',
       durationMinutes: 45,
     },
     {
       id: `a${weekNumber}_3`,
       title: 'Sports Activity',
       description: 'Outdoor games and physical fitness',
-      category: 'Sports',
+      category: 'Sewadal',
       durationMinutes: 60,
     },
   ];
@@ -102,7 +102,7 @@ function sampleActivities(weekNumber: number): Activity[] {
       id: `a${weekNumber}_4`,
       title: 'Cultural Program',
       description: 'Music, dance, and drama performances',
-      category: 'Cultural',
+      category: 'Volunteers',
       durationMinutes: 90,
     });
   }

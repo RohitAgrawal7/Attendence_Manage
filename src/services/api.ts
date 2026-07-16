@@ -7,6 +7,7 @@ import type {
   PatchAttendanceInput,
   SessionDateInput,
   Student,
+  UpdateStudentInput,
   YearData,
 } from '../types';
 import { toDateKey } from '../utils/sundayHelpers';
@@ -103,6 +104,30 @@ export const api = {
 
   async getStudentsWithStats() {
     return request('/api/students?includeStats=true');
+  },
+
+  async updateStudent(input: UpdateStudentInput): Promise<Student> {
+    return request(`/api/students/${input.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: input.name,
+        phone: input.phone,
+        address: input.address,
+        grade: input.grade,
+        age: input.age,
+        gender: input.gender,
+        rollNumber: input.rollNumber,
+        sanchalanSewa: input.sanchalanSewa,
+        stageSewa: input.stageSewa,
+      }),
+    });
+  },
+
+  async deleteStudent(id: string) {
+    return request<{ deleted: boolean; studentId: string; attendanceRecordsRemoved: number }>(
+      `/api/students/${id}`,
+      { method: 'DELETE' },
+    );
   },
 
   async getMonthFiles(year: number, month: number) {

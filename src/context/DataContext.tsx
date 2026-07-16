@@ -19,6 +19,7 @@ import type {
   SessionDateInput,
   Student,
   SundaySession,
+  UpdateStudentInput,
   YearData,
 } from '../types';
 import { api } from '../services/api';
@@ -41,6 +42,8 @@ interface DataContextValue {
   deleteActivity: (input: DeleteActivityInput) => Promise<void>;
   patchAttendance: (input: PatchAttendanceInput) => Promise<void>;
   deleteAttendance: (input: DeleteAttendanceInput) => Promise<boolean>;
+  updateStudent: (input: UpdateStudentInput) => Promise<void>;
+  deleteStudent: (id: string) => Promise<boolean>;
   deleteSession: (input: SessionDateInput) => Promise<void>;
   deleteMonth: (year: number, month: number) => Promise<void>;
   setEditTarget: (target: EditTarget | null) => void;
@@ -139,6 +142,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const updateStudent = useCallback(
+    async (input: UpdateStudentInput) => {
+      await api.updateStudent(input);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const deleteStudent = useCallback(
+    async (id: string): Promise<boolean> => {
+      try {
+        await api.deleteStudent(id);
+        await refresh();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [refresh],
+  );
+
   const updateSessionTopic = useCallback(
     async (input: SessionDateInput & { topic: string }) => {
       await api.updateSessionTopic(input);
@@ -199,6 +223,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteMonth,
       patchAttendance,
       deleteAttendance,
+      updateStudent,
+      deleteStudent,
       setEditTarget,
     }),
     [
@@ -220,6 +246,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteMonth,
       patchAttendance,
       deleteAttendance,
+      updateStudent,
+      deleteStudent,
     ],
   );
 

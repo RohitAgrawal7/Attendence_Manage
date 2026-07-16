@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Plus, X, FileDown, ChevronDown } from 'lucide-react';
+import { FileText, Plus, X, FileDown, ChevronDown, Eye } from 'lucide-react';
 import type { DataPdfEntry } from '../../types';
 import {
   getCustomPdfEntries,
@@ -13,6 +13,7 @@ interface DataPdfPanelProps {
   title?: string;
   entries: DataPdfEntry[];
   onExport: (entry: DataPdfEntry) => void;
+  onPreview?: (entry: DataPdfEntry) => void;
 }
 
 export function DataPdfPanel({
@@ -20,6 +21,7 @@ export function DataPdfPanel({
   title = 'Data PDF Reports',
   entries,
   onExport,
+  onPreview,
 }: DataPdfPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [customEntries, setCustomEntries] = useState<DataPdfEntry[]>(() =>
@@ -238,13 +240,23 @@ export function DataPdfPanel({
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
+                        {onPreview && (
+                          <button
+                            type="button"
+                            onClick={() => onPreview(selectedEntry)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-white px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 sm:text-sm"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Preview PDF
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => onExport(selectedEntry)}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-light sm:text-sm"
                         >
                           <FileDown className="h-4 w-4" />
-                          Export PDF
+                          Download PDF
                         </button>
                         {selectedEntry.isCustom && (
                           <button

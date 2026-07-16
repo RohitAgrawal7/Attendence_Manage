@@ -122,6 +122,7 @@ export function formatStudentReportText(report: StudentAttendanceReport): string
     student.phone ? `Phone: ${student.phone}` : null,
     student.address ? `Address: ${student.address}` : null,
     student.age != null ? `Age: ${student.age}` : null,
+    student.gender === 'boy' ? 'Gender: Boy' : student.gender === 'girl' ? 'Gender: Girl' : null,
     student.sanchalanSewa ? `Sanchalan Sewa: ${student.sanchalanSewa}` : null,
     student.stageSewa ? `Stage Sewa: ${student.stageSewa}` : null,
     ``,
