@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
@@ -8,6 +9,7 @@ import { MonthPage } from './pages/MonthPage';
 import { SessionDetailPage } from './pages/SessionDetailPage';
 import { StudentsPage } from './pages/StudentsPage';
 import { BinPage } from './pages/BinPage';
+import { LoginPage } from './pages/LoginPage';
 
 function AppShell() {
   const { loading, error, refresh, years, staleWarning } = useData();
@@ -30,10 +32,6 @@ function AppShell() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-4 text-center">
         <p className="text-sm font-medium text-red-600">Could not connect to API</p>
         <p className="max-w-md text-sm text-gray-500">{error}</p>
-        <p className="max-w-md text-xs text-gray-400">
-          Confirm the backend is running and <code className="rounded bg-gray-100 px-1">VITE_API_URL</code>{' '}
-          points to it in production.
-        </p>
         <button
           type="button"
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
@@ -64,20 +62,43 @@ function AppShell() {
           <Route path="/year/:year/month/:month" element={<MonthPage />} />
           <Route path="/year/:year/month/:month/date/:date" element={<SessionDetailPage />} />
           <Route path="/year/:year/month/:month/sunday/:week" element={<SessionDetailPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AnimatePresence>
     </>
   );
 }
 
+function AuthGate() {
+  const { token, ready } = useAuth();
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#1e3a5f]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!token) {
+    return <LoginPage />;
+  }
+
+  return (
+    <DataProvider>
+      <AppShell />
+    </DataProvider>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <DataProvider>
-        <BrowserRouter>
-          <AppShell />
-        </BrowserRouter>
-      </DataProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }

@@ -101,7 +101,7 @@ export function ShareYearReportButton({ yearData, label = 'Share' }: ShareReport
       whileHover={{ scale: 1.04 }}
       whileTap={{ scale: 0.96 }}
       onClick={handleShare}
-      className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/25 sm:px-4 sm:py-2"
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 text-xs font-semibold text-white transition hover:bg-white/20 sm:px-3 sm:text-sm"
     >
       <Share2 className="h-4 w-4" />
       <span className="hidden sm:inline">{label}</span>
@@ -135,7 +135,7 @@ export function ShareMonthReportButton({ monthData, label = 'Share' }: ShareRepo
       whileHover={{ scale: 1.04 }}
       whileTap={{ scale: 0.96 }}
       onClick={handleShare}
-      className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/25 sm:px-4 sm:py-2"
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 text-xs font-semibold text-white transition hover:bg-white/20 sm:px-3 sm:text-sm"
     >
       <Share2 className="h-4 w-4" />
       <span className="hidden sm:inline">{label}</span>
@@ -172,7 +172,7 @@ export function ShareSessionReportButton({ session, year, month, label = 'Share'
       whileHover={{ scale: 1.04 }}
       whileTap={{ scale: 0.96 }}
       onClick={handleShare}
-      className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/25 sm:px-4 sm:py-2"
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 text-xs font-semibold text-white transition hover:bg-white/20 sm:px-3 sm:text-sm"
     >
       <Share2 className="h-4 w-4" />
       <span className="hidden sm:inline">{label}</span>

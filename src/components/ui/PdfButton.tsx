@@ -18,11 +18,11 @@ export function PdfButton({
   variant = 'header',
 }: PdfButtonProps) {
   const headerCls =
-    'flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/25 sm:px-4 sm:py-2';
+    'inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 text-xs font-semibold text-white transition hover:bg-white/20 sm:px-3 sm:text-sm';
   const solidCls =
-    'flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-light sm:text-sm';
+    'inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white hover:bg-primary-light sm:text-sm';
   const outlineCls =
-    'flex items-center gap-1.5 rounded-lg border border-primary/20 bg-white px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 sm:text-sm';
+    'inline-flex h-9 items-center gap-1.5 rounded-lg border border-primary/20 bg-white px-3 text-xs font-semibold text-primary hover:bg-primary/5 sm:text-sm';
 
   const previewCls = variant === 'header' ? headerCls : outlineCls;
   const downloadCls = variant === 'header' ? headerCls : solidCls;

@@ -14,6 +14,12 @@ import { parseDateKey, toDateKey } from '../utils/sundayHelpers';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -21,6 +27,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   };
   const apiKey = import.meta.env.VITE_API_KEY as string | undefined;
   if (apiKey) headers['x-api-key'] = apiKey;
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
   let res: Response;
   try {
@@ -36,6 +43,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
+    try {
+      const body = JSON.parse(text) as { message?: string | string[] };
+      if (Array.isArray(body.message)) throw new Error(body.message.join(', '));
+      if (typeof body.message === 'string') throw new Error(body.message);
+    } catch (err) {
+      if (err instanceof Error && err.message !== text) throw err;
+    }
     throw new Error(text || `API error ${res.status}`);
   }
   return res.json() as Promise<T>;
@@ -64,6 +78,15 @@ function normalizeBootstrap(data: BootstrapData): BootstrapData {
 }
 
 export const api = {
+  setAuthToken,
+
+  async login(username: string, password: string) {
+    return request<{ token: string; expiresAt: string; username: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  },
+
   async getBootstrap(): Promise<BootstrapData> {
     const data = await request<BootstrapData>('/api/bootstrap');
     return normalizeBootstrap(data);
@@ -156,6 +179,7 @@ export const api = {
     const headers: Record<string, string> = {};
     const apiKey = import.meta.env.VITE_API_KEY as string | undefined;
     if (apiKey) headers['x-api-key'] = apiKey;
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const res = await fetch(`${API_BASE}/api/months/${year}/${month}/files`, {
       method: 'POST',
       headers,
