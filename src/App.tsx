@@ -1,5 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -13,7 +12,6 @@ import { LoginPage } from './pages/LoginPage';
 
 function AppShell() {
   const { loading, error, refresh, years, staleWarning } = useData();
-  const location = useLocation();
 
   if (loading) {
     return (
@@ -53,18 +51,17 @@ function AppShell() {
           </button>
         </div>
       )}
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/students" element={<StudentsPage />} />
-          <Route path="/bin" element={<BinPage />} />
-          <Route path="/year/:year" element={<YearPage />} />
-          <Route path="/year/:year/month/:month" element={<MonthPage />} />
-          <Route path="/year/:year/month/:month/date/:date" element={<SessionDetailPage />} />
-          <Route path="/year/:year/month/:month/sunday/:week" element={<SessionDetailPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AnimatePresence>
+      {/* Stable routes — no remount/fade-to-white on every nav click */}
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/students" element={<StudentsPage />} />
+        <Route path="/bin" element={<BinPage />} />
+        <Route path="/year/:year" element={<YearPage />} />
+        <Route path="/year/:year/month/:month" element={<MonthPage />} />
+        <Route path="/year/:year/month/:month/date/:date" element={<SessionDetailPage />} />
+        <Route path="/year/:year/month/:month/sunday/:week" element={<SessionDetailPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </>
   );
 }

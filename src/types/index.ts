@@ -140,6 +140,7 @@ export interface AttendanceActionResult {
   month: number;
   dateKey: string;
   weekNumber: number;
+  studentId: string;
   studentName: string;
   isUpdate: boolean;
 }

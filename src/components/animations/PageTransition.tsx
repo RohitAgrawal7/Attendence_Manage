@@ -1,25 +1,18 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
-const pageVariants = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-};
-
 interface PageTransitionProps {
   children: ReactNode;
   className?: string;
 }
 
+/** Light fade — keeps pages visible (no blank white flash). */
 export function PageTransition({ children, className = '' }: PageTransitionProps) {
   return (
     <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+      initial={{ opacity: 0.96 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
       className={className}
     >
       {children}
@@ -28,10 +21,10 @@ export function PageTransition({ children, className = '' }: PageTransitionProps
 }
 
 export const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.06 } },
+  animate: { transition: { staggerChildren: 0.04 } },
 };
 
 export const staggerItem = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  initial: { opacity: 0.85, y: 6 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.18 } },
 };

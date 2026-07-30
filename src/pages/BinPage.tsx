@@ -36,7 +36,6 @@ export function BinPage() {
 
   const loadTrash = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
       const data = await api.getTrash();
       setItems(data);
@@ -117,7 +116,11 @@ export function BinPage() {
         )}
 
         {loading ? (
-          <p className="py-12 text-center text-sm text-gray-500">Loading bin…</p>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-200/70" />
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <div className="card-shadow rounded-xl bg-white py-16 text-center">
             <Trash2 className="mx-auto h-10 w-10 text-gray-300" />

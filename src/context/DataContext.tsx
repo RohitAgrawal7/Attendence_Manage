@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -23,7 +24,13 @@ import type {
   YearData,
 } from '../types';
 import { api, type BootstrapData } from '../services/api';
-import { sameDay, toDateKey } from '../utils/sundayHelpers';
+import { toDateKey } from '../utils/sundayHelpers';
+import {
+  applyAttendanceOptimistic,
+  applyPatchOptimistic,
+  applyTopicOptimistic,
+  removeAttendanceOptimistic,
+} from '../utils/optimisticData';
 
 const BOOTSTRAP_CACHE_KEY = 'sm_bootstrap_cache_v1';
 
@@ -87,7 +94,7 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | null>(null);
 
 function findSessionByDate(sundays: SundaySession[], date: Date): SundaySession | undefined {
-  return sundays.find((s) => sameDay(s.date, date));
+  return sundays.find((s) => toDateKey(s.date) === toDateKey(date));
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -98,6 +105,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [staleWarning, setStaleWarning] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     const data = await api.getBootstrap();
@@ -107,6 +115,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setError(null);
     setStaleWarning(false);
   }, []);
+
+  /** Sync from server in the background — does not block the UI. */
+  const softRefresh = useCallback(() => {
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => {
+      void refresh().catch(() => undefined);
+    }, 400);
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })();
     return () => {
       cancelled = true;
+      clearTimeout(refreshTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
@@ -159,94 +176,125 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const saveAttendance = useCallback(
     async (input: AttendanceFormInput): Promise<AttendanceActionResult> => {
       const result = await api.saveAttendance(input);
-      await refresh();
+      const studentId = result.studentId || input.studentId || `tmp_${Date.now()}`;
+      const next = applyAttendanceOptimistic(years, students, input, studentId);
+      setYears(next.years);
+      setStudents(next.students);
+      writeBootstrapCache({ students: next.students, years: next.years });
       setEditTarget(null);
+      softRefresh();
       return result;
     },
-    [refresh],
+    [softRefresh, students, years],
   );
 
   const patchAttendance = useCallback(
     async (input: PatchAttendanceInput) => {
-      await api.patchAttendance(input);
-      await refresh();
+      // Optimistic first for instant UI, then confirm with API
+      const next = applyPatchOptimistic(years, students, input);
+      setYears(next.years);
+      setStudents(next.students);
+      try {
+        await api.patchAttendance(input);
+        softRefresh();
+      } catch (err) {
+        softRefresh();
+        throw err;
+      }
     },
-    [refresh],
+    [softRefresh, students, years],
   );
 
   const deleteAttendance = useCallback(
     async (input: DeleteAttendanceInput): Promise<boolean> => {
       try {
         await api.deleteAttendance(input);
-        await refresh();
+        const nextYears = removeAttendanceOptimistic(
+          years,
+          input.studentId,
+          input.year,
+          input.month,
+          input.date,
+        );
+        setYears(nextYears);
+        writeBootstrapCache({ students, years: nextYears });
         setEditTarget(null);
+        softRefresh();
         return true;
       } catch {
         return false;
       }
     },
-    [refresh],
+    [softRefresh, students, years],
   );
 
   const updateStudent = useCallback(
     async (input: UpdateStudentInput) => {
       await api.updateStudent(input);
-      await refresh();
+      softRefresh();
     },
-    [refresh],
+    [softRefresh],
   );
 
   const deleteStudent = useCallback(
     async (id: string): Promise<boolean> => {
       try {
         await api.deleteStudent(id);
-        await refresh();
+        softRefresh();
         return true;
       } catch {
         return false;
       }
     },
-    [refresh],
+    [softRefresh],
   );
 
   const updateSessionTopic = useCallback(
     async (input: SessionDateInput & { topic: string }) => {
-      await api.updateSessionTopic(input);
-      await refresh();
+      setYears((prev) =>
+        applyTopicOptimistic(prev, input.year, input.month, input.date, input.topic),
+      );
+      try {
+        await api.updateSessionTopic(input);
+        softRefresh();
+      } catch (err) {
+        softRefresh();
+        throw err;
+      }
     },
-    [refresh],
+    [softRefresh],
   );
 
   const saveActivity = useCallback(
     async (input: ActivityFormInput) => {
       await api.saveActivity(input);
-      await refresh();
+      softRefresh();
     },
-    [refresh],
+    [softRefresh],
   );
 
   const deleteActivity = useCallback(
     async (input: DeleteActivityInput) => {
       await api.deleteActivity(input);
-      await refresh();
+      softRefresh();
     },
-    [refresh],
+    [softRefresh],
   );
 
   const deleteSession = useCallback(
     async (input: SessionDateInput) => {
       await api.deleteSession(toDateKey(input.date));
-      await refresh();
+      softRefresh();
     },
-    [refresh],
+    [softRefresh],
   );
 
   const deleteMonth = useCallback(
     async (year: number, month: number) => {
       await api.deleteMonth(year, month);
-      await refresh();
+      softRefresh();
     },
-    [refresh],
+    [softRefresh],
   );
 
   const value = useMemo(

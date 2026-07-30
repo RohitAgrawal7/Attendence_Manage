@@ -142,7 +142,7 @@ export function AttendanceForm() {
       });
       setLiveSaved(true);
       setTimeout(() => setLiveSaved(false), 1500);
-    }, 350);
+    }, 700);
 
     return () => clearTimeout(liveTimerRef.current);
   }, [form.phone, form.address, form.grade, form.gender, form.sanchalanSewa, form.stageSewa, form.status, form.studentId, selectedDate, patchAttendance, isInSession]);
@@ -158,7 +158,7 @@ export function AttendanceForm() {
         date: selectedDate,
         topic,
       });
-    }, 400);
+    }, 800);
 
     return () => clearTimeout(topicTimerRef.current);
   }, [topic, selectedDate, updateSessionTopic]);
