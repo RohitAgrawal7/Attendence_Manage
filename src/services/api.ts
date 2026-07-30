@@ -10,15 +10,30 @@ import type {
   UpdateStudentInput,
   YearData,
 } from '../types';
-import { toDateKey } from '../utils/sundayHelpers';
+import { parseDateKey, toDateKey } from '../utils/sundayHelpers';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  const apiKey = import.meta.env.VITE_API_KEY as string | undefined;
+  if (apiKey) headers['x-api-key'] = apiKey;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new Error(
+      'Cannot reach the API. Start the backend and confirm VITE_API_URL / proxy settings.',
+    );
+  }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `API error ${res.status}`);
@@ -40,7 +55,8 @@ function normalizeBootstrap(data: BootstrapData): BootstrapData {
         ...m,
         sundays: m.sundays.map((s) => ({
           ...s,
-          date: new Date(s.date),
+          // Parse YYYY-MM-DD as local calendar date (avoid UTC midnight shift)
+          date: parseDateKey(typeof s.date === 'string' ? s.date : toDateKey(new Date(s.date))),
         })),
       })),
     })),
@@ -137,8 +153,12 @@ export const api = {
   async uploadMonthFile(year: number, month: number, file: File) {
     const form = new FormData();
     form.append('file', file);
+    const headers: Record<string, string> = {};
+    const apiKey = import.meta.env.VITE_API_KEY as string | undefined;
+    if (apiKey) headers['x-api-key'] = apiKey;
     const res = await fetch(`${API_BASE}/api/months/${year}/${month}/files`, {
       method: 'POST',
+      headers,
       body: form,
     });
     if (!res.ok) {

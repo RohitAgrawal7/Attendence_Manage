@@ -94,6 +94,7 @@ export function YearPage() {
         <StudentReportPanel
           scope={{ type: 'year', year: yearData.year }}
           scopeLabel={`Year ${yearData.year}`}
+          compact
         />
 
         <DataPdfPanel
